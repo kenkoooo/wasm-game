@@ -17,8 +17,13 @@ features = [
   'console',
   'CanvasRenderingContext2d',
   'Document',
+  'File',
+  'FileList',
+  'FileReader',
   'Element',
   'KeyboardEvent',
   'HtmlCanvasElement',
+  'HtmlInputElement',
+  'ProgressEvent',
   'Window',
 ]
