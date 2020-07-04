@@ -1,5 +1,5 @@
 use crate::state::{ArrowKey, State};
-use crate::web_sys_utils::{get_document, get_element_by_id, read_text};
+use crate::web_sys_utils::{get_document, get_element_by_id, read_text, UnwrapOrLog};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -9,25 +9,21 @@ mod render;
 mod state;
 mod web_sys_utils;
 
-#[macro_export]
-macro_rules! console_log {
-    ($($t:tt)*) => (web_sys::console::log_1(&format_args!($($t)*).to_string().into()))
-}
+pub(crate) use web_sys_utils::Result;
 
 #[wasm_bindgen(start)]
-pub fn start() -> Result<(), JsValue> {
+pub fn start() -> Result<()> {
     let canvas: web_sys::HtmlCanvasElement = get_element_by_id("canvas");
     let width = canvas.width() as f64;
     let height = canvas.height() as f64;
     let context = canvas
-        .get_context("2d")
-        .unwrap()
-        .unwrap()
+        .get_context("2d")?
+        .unwrap_or_log()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
 
     let buffer: Rc<Cell<Option<String>>> = Rc::new(Cell::new(None));
-    let state = Rc::new(State::new(context, width, height));
+    let state = Rc::new(RefCell::new(State::new(context, width, height)));
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
     {
@@ -38,17 +34,17 @@ pub fn start() -> Result<(), JsValue> {
             if let Some(a) = buffer.take() {
                 console_log!("{}", a);
             }
-            state.step().unwrap();
-            request_animation_frame(f.borrow().as_ref().unwrap());
+            state.borrow_mut().step().unwrap_or_log();
+            request_animation_frame(f.borrow().as_ref().unwrap_or_log());
         }) as Box<dyn FnMut()>));
-        request_animation_frame(g.borrow().as_ref().unwrap());
+        request_animation_frame(g.borrow().as_ref().unwrap_or_log());
     }
 
     {
         let state = state.clone();
         let keydown_handler = Closure::wrap(Box::new(move |e: web_sys::KeyboardEvent| {
             if let Ok(key) = e.key().parse::<ArrowKey>() {
-                state.down_key(key);
+                state.borrow_mut().down_key(key);
             }
         }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
 
@@ -60,7 +56,7 @@ pub fn start() -> Result<(), JsValue> {
         let state = state.clone();
         let keyup_handler = Closure::wrap(Box::new(move |e: web_sys::KeyboardEvent| {
             if e.key().parse::<ArrowKey>().is_ok() {
-                state.up_key();
+                state.borrow_mut().up_key();
             }
         }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
 
@@ -70,12 +66,12 @@ pub fn start() -> Result<(), JsValue> {
 
     {
         let buffer = buffer.clone();
-        let input_change_handler = Closure::wrap(Box::new(move |_: web_sys::Event| {
+        let input_change_handler = Closure::wrap(Box::new(move || {
             let input1: web_sys::HtmlInputElement = get_element_by_id("input1");
-            if let Some(file) = input1.files().unwrap().get(0) {
+            if let Some(file) = input1.files().unwrap_or_log().get(0) {
                 read_text(&file, buffer.clone());
             }
-        }) as Box<dyn FnMut(web_sys::Event)>);
+        }) as Box<dyn FnMut()>);
         get_element_by_id::<web_sys::HtmlInputElement>("input1")
             .set_onchange(Some(input_change_handler.as_ref().unchecked_ref()));
         input_change_handler.forget();
@@ -85,7 +81,7 @@ pub fn start() -> Result<(), JsValue> {
 
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {
     web_sys::window()
-        .unwrap()
+        .unwrap_or_log()
         .request_animation_frame(f.as_ref().unchecked_ref())
-        .expect("should register `requestAnimationFrame` OK");
+        .unwrap_or_log();
 }

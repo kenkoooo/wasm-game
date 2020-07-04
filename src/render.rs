@@ -1,3 +1,4 @@
+use crate::UnwrapOrLog;
 use std::f64;
 use wasm_bindgen::JsValue;
 use web_sys::CanvasRenderingContext2d;
@@ -18,14 +19,14 @@ pub fn render_smile(
     // Draw the outer circle.
     context
         .arc(cx, cy, face_radius, 0.0, f64::consts::PI * 2.0)
-        .unwrap();
+        .unwrap_or_log();
 
     let mouth_radius = face_radius * 0.7;
     // Draw the mouth.
     context.move_to(cx + mouth_radius, cy);
     context
         .arc(cx, cy, mouth_radius, 0.0, f64::consts::PI)
-        .unwrap();
+        .unwrap_or_log();
 
     let eye_radius = face_radius / 10.0;
     let eye_y = cy - eye_radius * 2.0;
@@ -40,7 +41,7 @@ pub fn render_smile(
             0.0,
             f64::consts::PI * 2.0,
         )
-        .unwrap();
+        .unwrap_or_log();
 
     let right_eye_start_x = cx + eye_radius * 2.0 + eye_radius * 2.0;
     // Draw the right eye.
@@ -53,7 +54,7 @@ pub fn render_smile(
             0.0,
             f64::consts::PI * 2.0,
         )
-        .unwrap();
+        .unwrap_or_log();
 
     context.stroke();
     Ok(())
